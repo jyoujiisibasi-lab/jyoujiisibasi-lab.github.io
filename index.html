@@ -49,6 +49,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; }
 .wrap { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .wrap > * { min-width: 0; }
@@ -104,6 +105,22 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 .how { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .how div { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 10px 14px; font-size: .86rem; }
 .how b { display: block; font-family: var(--display); }
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 5px; }
+.mode { border: 0; background: transparent; border-radius: 12px; padding: 8px 4px; font-weight: 700; font-size: .92rem; display: grid; line-height: 1.3; }
+.mode small { font-weight: 500; font-size: .75rem; color: var(--muted); }
+.mode[aria-selected="true"] { background: var(--sky); color: var(--paper); }
+.mode[aria-selected="true"] small { color: var(--paper); opacity: .85; }
+.reply { display: flex; gap: 10px; align-items: flex-start; background: var(--sky-soft); border-radius: 16px; padding: 10px 14px; text-align: left; max-width: 100%; }
+.reply .en { font-family: var(--display); font-weight: 600; font-size: 1.15rem; }
+.reply .ja2 { font-size: .82rem; color: var(--muted); }
+.hints { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.chip { border: 2px solid var(--line); background: var(--paper); border-radius: 999px; padding: 4px 12px; font-family: var(--display); font-weight: 500; }
+.chip small { font-family: var(--body); color: var(--muted); margin-left: 4px; }
+.choices { display: grid; gap: 8px; width: 100%; max-width: 420px; }
+.choice { border: 2px solid var(--line); background: var(--paper); border-radius: 14px; padding: 12px 14px; font-weight: 700; text-align: left; }
+.choice.right { border-color: var(--leaf); background: var(--leaf-soft); color: var(--leaf); }
+.choice.wrong { border-color: var(--miss); background: var(--miss-soft); color: var(--miss); }
+.how[hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .bear.talk, .mic.rec { animation: none; } }
 </style>
 
@@ -111,9 +128,15 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 <body>
 <div class="wrap">
   <header>
-    <h1>おやこ英会話タイム<small>ポコのまねをして言ってみよう</small></h1>
+    <h1>おやこ英会話タイム<small>まねして、きいて、こたえよう</small></h1>
     <div class="stars" id="stars" aria-live="polite">⭐ 0</div>
   </header>
+
+  <div class="modes" role="tablist" aria-label="モード">
+    <button class="mode" id="modeRepeat" role="tab">🦜 まねっこ<small>まねして言う</small></button>
+    <button class="mode" id="modeListen" role="tab">👂 ききとり<small>意味をえらぶ</small></button>
+    <button class="mode" id="modeAnswer" role="tab">💬 おへんじ<small>自分で答える</small></button>
+  </div>
 
   <nav class="tabs" id="tabs" role="tablist" aria-label="場面"></nav>
 
@@ -129,6 +152,10 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     <button class="mic" id="mic" aria-label="マイクを押して話す">🎤</button>
     <div class="heard" id="heard">マイクを押して、ポコと同じように言ってね</div>
     <div class="result" id="result" aria-live="assertive"></div>
+    <div class="reply" id="reply" hidden><span aria-hidden="true">🐻</span><div><div class="en" id="replyEn"></div><div class="ja2" id="replyJa"></div></div></div>
+    <button class="btn" id="hintBtn" hidden>💡 ヒントを見る</button>
+    <div class="hints" id="hints" hidden></div>
+    <div class="choices" id="choices" hidden></div>
     <div class="row">
       <button class="btn go" id="next" hidden>つぎへ ▶</button>
       <button class="btn" id="skip" hidden>とばす</button>
@@ -142,7 +169,17 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     </div>
   </main>
 
-  <section class="how" aria-label="あそびかた">
+  <section class="how" id="howAnswer" aria-label="あそびかた" hidden>
+    <div><b>1. きく</b>ポコが英語でしつもんします。</div>
+    <div><b>2. こたえる</b>🎤を押して、自分のことばで答えます。</div>
+    <div><b>3. ⭐ゲット</b>こまったら💡ヒント。ポコがおへんじしてくれます。</div>
+  </section>
+  <section class="how" id="howListen" aria-label="あそびかた" hidden>
+    <div><b>1. きく</b>ポコが英語を言います。英語の文字はかくれています。</div>
+    <div><b>2. えらぶ</b>どういう意味か、3つの中からえらびます。</div>
+    <div><b>3. ⭐ゲット</b>正解すると答えの英語が見えます。🎤でまねもできます。</div>
+  </section>
+  <section class="how" id="howRepeat" aria-label="あそびかた">
     <div><b>1. きく</b>ポコが英語を言います。</div>
     <div><b>2. まねする</b>🎤を押して、同じように言います。</div>
     <div><b>3. ⭐ゲット</b>言えたら次へ。言えなかった単語は赤くなります。</div>
@@ -180,17 +217,58 @@ const SCENES = [
     ["g", "I love you, too.", "わたしもだいすきだよ。"], ["g", "Sweet dreams.", "いい夢をね。"], ["k", "Good night!", "おやすみなさい！"] ] },
 ];
 
+
+// 返事モード: ポコのしつもんに自分で答える。keys のどれかが聞こえたら合格。
+// pick の単語が聞こえたら reply の {x} に入れておへんじする。yn は yes/no で返事を変える。
+const NUMW = ["one","two","three","four","five","six","seven","eight","nine","ten"];
+const COLORS = ["red","blue","yellow","green","pink","purple","orange","black","white","brown","gold","silver"];
+const FOODS = ["pizza","curry","sushi","rice","bread","toast","banana","bananas","apple","apples","noodles","ramen","udon","hamburger","hamburgers","cake","chocolate","strawberry","strawberries","egg","eggs","chicken","meat","fish","ice","cereal","pancakes","natto","soup","spaghetti","cookies","cheese","milk","yogurt","grapes","watermelon","onigiri","karaage"];
+const ANIMALS = ["dog","dogs","cat","cats","rabbit","rabbits","bear","bears","lion","lions","panda","pandas","elephant","elephants","monkey","monkeys","giraffe","giraffes","tiger","tigers","penguin","penguins","dolphin","dolphins","horse","horses","koala","koalas","hamster","hamsters","bird","birds","dinosaur","dinosaurs","fish","duck","ducks"];
+const PLACES = ["park","zoo","beach","sea","mountain","mountains","shop","store","supermarket","school","pool","aquarium","library","museum","disneyland","station","restaurant","playground"];
+const PEOPLE = ["mom","mommy","mama","dad","daddy","papa","grandma","grandpa","sister","brother","baby","you","poko","family","everyone","teacher"];
+const FEEL = ["good","fine","great","happy","ok","tired","sleepy","sad","hungry","excited","sick","angry"];
+const LEVELS = [
+  { id: "easy", ico: "🌱", name: "かんたん", qs: [
+    { q: "Do you like apples?", ja: "りんごはすき？", yn: true, yes: ["Me too! Apples are yummy!", "ぼくも！りんごおいしいよね！"], no: ["Okay! What fruit do you like?", "そっか！どんなくだものがすき？"], hints: [["Yes, I do!", "うん、すき！"], ["No, I don't.", "ううん、すきじゃない。"]] },
+    { q: "Are you hungry?", ja: "おなかすいた？", yn: true, yes: ["Let's eat something yummy!", "おいしいもの食べよう！"], no: ["Okay! Maybe later.", "わかった！またあとでね。"], hints: [["Yes, I am!", "うん、すいた！"], ["No, I'm not.", "ううん、すいてない。"]] },
+    { q: "Is it sunny today?", ja: "今日は晴れてる？", yn: true, yes: ["Yay! Let's play outside!", "やった！外であそぼう！"], no: ["Oh no! Let's play inside.", "ざんねん！おうちであそぼう。"], hints: [["Yes, it is!", "うん、晴れてる！"], ["No, it's rainy.", "ううん、雨だよ。"]] },
+    { q: "Do you like dogs or cats?", ja: "犬とねこ、どっちがすき？", keys: ["dog","dogs","cat","cats","both"], pick: ["dogs","dog","cats","cat","both"], reply: ["{x}! So cute!", "{x}！かわいいね！"], hints: [["I like dogs.", "犬がすき。"], ["I like cats.", "ねこがすき。"]] },
+    { q: "Are you happy?", ja: "しあわせ？たのしい？", yn: true, yes: ["I'm happy, too!", "ぼくもたのしいよ！"], no: ["Oh no. Here's a big hug!", "そっか。ぎゅーってしてあげる！"], hints: [["Yes, I am!", "うん！"], ["No, I'm sleepy.", "ううん、ねむい。"]] },
+    { q: "Can you jump?", ja: "ジャンプできる？", yn: true, yes: ["Wow! Jump, jump, jump!", "すごい！ぴょんぴょん！"], no: ["That's okay! Let's try together.", "だいじょうぶ！いっしょにやってみよう。"], hints: [["Yes, I can!", "うん、できる！"], ["No, I can't.", "ううん、できない。"]] } ] },
+  { id: "normal", ico: "🌼", name: "ふつう", qs: [
+    { q: "What's your name?", ja: "なまえは？", keys: ["name","i'm","i","am","call"], reply: ["Nice to meet you!", "よろしくね！"], hints: [["My name is Hana.", "わたしの名前はハナです。"], ["I'm Ken.", "ぼくはケンです。"]] },
+    { q: "How old are you?", ja: "なんさい？", keys: NUMW.concat(["years","old"]), pick: NUMW, reply: ["{x}! Wow, so big!", "おおきいね！"], hints: [["I'm five.", "5さいです。"], ["I'm seven years old.", "7さいです。"]] },
+    { q: "What's your favorite color?", ja: "すきな色は？", keys: COLORS, pick: COLORS, reply: ["{x}! I like {x}, too!", "{x}！ぼくもすき！"], hints: [["I like blue.", "青がすき。"], ["Pink!", "ピンク！"]] },
+    { q: "What's your favorite food?", ja: "すきな食べものは？", keys: FOODS.concat(["like","favorite"]), pick: FOODS, reply: ["{x}! Yummy!", "{x}！おいしいよね！"], fallback: ["Sounds yummy!", "おいしそう！"], hints: [["I like curry.", "カレーがすき。"], ["Sushi!", "おすし！"]] },
+    { q: "What animal do you like?", ja: "どんな動物がすき？", keys: ANIMALS.concat(["like"]), pick: ANIMALS, reply: ["{x}! Great choice!", "{x}！いいね！"], fallback: ["Cool! I like animals, too!", "いいね！ぼくも動物すき！"], hints: [["I like pandas.", "パンダがすき。"], ["Dogs!", "犬！"]] },
+    { q: "How are you today?", ja: "今日の気分はどう？", keys: FEEL, pick: FEEL, reply: ["You feel {x}. Thank you for telling me!", "「{x}」なんだね。教えてくれてありがとう！"], hints: [["I'm good!", "げんきだよ！"], ["I'm sleepy.", "ねむいよ。"]] } ] },
+  { id: "challenge", ico: "🔥", name: "チャレンジ", qs: [
+    { q: "What did you eat for breakfast?", ja: "朝ごはん、何を食べた？", keys: FOODS.concat(["ate","had","eat"]), pick: FOODS, reply: ["{x} for breakfast! Nice!", "朝ごはんは{x}！いいね！"], fallback: ["Nice breakfast!", "いい朝ごはんだね！"], hints: [["I ate toast.", "トーストを食べたよ。"], ["I had rice and natto.", "ごはんとなっとう。"]] },
+    { q: "Where do you want to go?", ja: "どこに行きたい？", keys: PLACES.concat(["go","want"]), pick: PLACES, reply: ["The {x}? Let's go together!", "{x}？いっしょに行こう！"], fallback: ["That sounds fun!", "たのしそう！"], hints: [["I want to go to the zoo.", "動物園に行きたい。"], ["The park!", "公園！"]] },
+    { q: "Who do you love?", ja: "だれがだいすき？", keys: PEOPLE.concat(["love"]), pick: PEOPLE, reply: ["Aww, {x}! That's so sweet!", "{x}！すてきだね！"], hints: [["I love Mommy.", "ママがだいすき。"], ["I love my family.", "かぞくがだいすき。"]] },
+    { q: "What do you want to play?", ja: "何してあそびたい？", keys: ["play","tag","hide","seek","game","games","blocks","ball","soccer","cards","house","dolls","trains","want"], reply: ["That sounds fun! Let's play!", "たのしそう！あそぼう！"], hints: [["I want to play tag.", "おにごっこしたい。"], ["Let's play with blocks!", "ブロックであそぼう！"]] },
+    { q: "What is your favorite toy?", ja: "おきにいりのおもちゃは？", keys: ["my","like","favorite","is","toy","ball","doll","car","train","blocks","bear","lego"], reply: ["Cool! I want to see it!", "いいね！見てみたいな！"], hints: [["My favorite toy is my train.", "でんしゃのおもちゃ。"], ["I like my teddy bear.", "くまのぬいぐるみがすき。"]] },
+    { q: "What's the weather like today?", ja: "今日の天気はどう？", keys: ["sunny","rainy","cloudy","snowy","windy","hot","cold","warm","nice","rain","snow"], pick: ["sunny","rainy","cloudy","snowy","windy","hot","cold","warm","nice"], reply: ["It's {x} today. Thank you!", "今日は{x}なんだね。ありがとう！"], hints: [["It's sunny.", "晴れてるよ。"], ["It's rainy and cold.", "雨でさむいよ。"]] } ] },
+];
+
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 let done = store.get("oyako-done", {});
 let opts = Object.assign({ slow: true, hide: false, easy: false }, store.get("oyako-opts", {}));
-let current = store.get("oyako-scene", "morning");
-if (!SCENES.some(s => s.id === current)) current = "morning";
-let idx = 0, tries = 0, recog = null, listening = false, micBroken = false;
+let mode = store.get("oyako-mode", "repeat");
+if (!["repeat", "listen", "answer"].includes(mode)) mode = "repeat";
+let pos = store.get("oyako-pos", {});          // mode -> tab id
+let idx = 0, tries = 0, recog = null, listening = false, micBroken = false, advanceTimer = null;
 const $ = id => document.getElementById(id);
-const scene = () => SCENES.find(s => s.id === current);
+
+const groups = () => mode === "answer" ? LEVELS : SCENES;
+function tabId() { const id = pos[mode]; return groups().some(g => g.id === id) ? id : groups()[0].id; }
+const group = () => groups().find(g => g.id === tabId());
+const items = () => mode === "answer" ? group().qs : group().lines;
+const doneKey = () => mode === "repeat" ? tabId() : (mode === "listen" ? "L:" : "A:") + tabId();
+const itemText = i => mode === "answer" ? items()[i].q : items()[i][1];
 
 // ---------- speech out ----------
 let voices = [];
@@ -213,7 +291,7 @@ function speak(text, onend) {
 
 // ---------- scoring ----------
 const NUM = { "1": "one", "2": "two", "3": "three", "4": "four", "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine", "10": "ten" };
-const SAME = { okay: "ok", yeah: "yes", yummy: "yummy", mommy: "mom", hide: "hide" };
+const SAME = { okay: "ok", yeah: "yes", yep: "yes", nope: "no", mommy: "mom", mama: "mom", daddy: "dad", papa: "dad" };
 function words(s) {
   return s.toLowerCase()
     .replace(/[’']/g, "'")
@@ -222,110 +300,197 @@ function words(s) {
     .split(/\s+/).filter(Boolean)
     .map(w => NUM[w] || SAME[w] || w);
 }
+const same = (a, b) => a === b || (a.length > 2 && a.replace(/'.*/, "") === b.replace(/'.*/, ""));
 // which target words appear, in order, in what was heard (longest common subsequence)
 function match(target, heard) {
   const t = words(target), h = words(heard);
   const dp = Array.from({ length: t.length + 1 }, () => new Array(h.length + 1).fill(0));
   for (let i = t.length - 1; i >= 0; i--) for (let j = h.length - 1; j >= 0; j--)
-    dp[i][j] = t[i] === h[j] || t[i].replace(/'.*/, "") === h[j].replace(/'.*/, "") && t[i].length > 2
-      ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    dp[i][j] = same(t[i], h[j]) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
   const hit = new Array(t.length).fill(false);
   let i = 0, j = 0;
   while (i < t.length && j < h.length) {
-    if (t[i] === h[j] || (t[i].replace(/'.*/, "") === h[j].replace(/'.*/, "") && t[i].length > 2)) { hit[i] = true; i++; j++; }
+    if (same(t[i], h[j])) { hit[i] = true; i++; j++; }
     else if (dp[i + 1][j] >= dp[i][j + 1]) i++; else j++;
   }
   return { hit, score: t.length ? hit.filter(Boolean).length / t.length : 0 };
+}
+// 返事モードの判定: 合格なら {reply:[en, ja]} 、だめなら null
+function answerCheck(q, heard) {
+  const w = words(heard);
+  if (!w.length) return null;
+  const norm = list => list.map(x => SAME[x] || x);
+  if (q.yn) {
+    const no = w.some(x => x === "no" || x === "not" || x === "don't" || x === "can't" || x === "isn't" || x === "it's" && w.includes("rainy"));
+    const yes = w.some(x => ["yes", "do", "am", "can", "is", "sure", "yummy", "love", "like"].includes(x));
+    if (no) return { reply: q.no };
+    if (yes) return { reply: q.yes };
+    return null;
+  }
+  const pick = q.pick ? w.find(x => norm(q.pick).includes(x)) : null;
+  if (pick) return { reply: q.reply.map(r => r.replace(/^\{x\}/, pick[0].toUpperCase() + pick.slice(1)).replaceAll("{x}", pick)) };
+  if (w.some(x => norm(q.keys).includes(x))) return { reply: q.fallback || (q.pick ? ["Nice!", "いいね！"] : q.reply) };
+  return null;
 }
 
 // ---------- render ----------
 function totalStars() { return Object.values(done).reduce((n, a) => n + a.length, 0); }
 function renderStars() { $("stars").textContent = "⭐ " + totalStars(); }
+function renderModes() {
+  for (const [id, m] of [["modeRepeat", "repeat"], ["modeListen", "listen"], ["modeAnswer", "answer"]]) $(id).setAttribute("aria-selected", mode === m);
+  $("howRepeat").hidden = mode !== "repeat"; $("howListen").hidden = mode !== "listen"; $("howAnswer").hidden = mode !== "answer";
+  $("hideTxt").hidden = mode !== "repeat"; $("easy").hidden = mode !== "repeat";
+}
 function renderTabs() {
   $("tabs").innerHTML = "";
-  for (const s of SCENES) {
+  const cur = tabId();
+  for (const g of groups()) {
+    const n = (mode === "answer" ? g.qs : g.lines).length;
+    const key = mode === "repeat" ? g.id : (mode === "listen" ? "L:" : "A:") + g.id;
     const b = document.createElement("button");
-    b.className = "tab"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", s.id === current);
-    b.innerHTML = `<span class="ico" aria-hidden="true">${s.ico}</span><span class="lbl">${s.name}</span><span class="got">${(done[s.id] || []).length}/${s.lines.length}</span>`;
-    b.onclick = () => { current = s.id; idx = 0; store.set("oyako-scene", current); renderTabs(); showCard(true); };
+    b.className = "tab"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", g.id === cur);
+    b.innerHTML = `<span class="ico" aria-hidden="true">${g.ico}</span><span class="lbl">${g.name}</span><span class="got">${(done[key] || []).length}/${n}</span>`;
+    b.onclick = () => { pos[mode] = g.id; store.set("oyako-pos", pos); idx = 0; renderTabs(); showCard(true); };
     $("tabs").append(b);
   }
 }
-function renderTarget(hit) {
-  const [, en] = scene().lines[idx];
+function renderTarget(hit, hide) {
   const t = $("target"); t.innerHTML = "";
-  const display = en.split(/\s+/);
-  // display tokens map 1:1 to scoring words except hyphenated ones; keep it simple: color per display token
   let k = 0;
-  for (const tok of display) {
+  for (const tok of itemText(idx).split(/\s+/)) {
     const n = words(tok).length;
     const span = document.createElement("span"); span.className = "w"; span.textContent = tok;
     if (hit) { const part = hit.slice(k, k + n); span.classList.add(part.every(Boolean) ? "hit" : "miss"); }
     k += n; t.append(span);
   }
-  t.classList.toggle("hide", opts.hide && !hit);
+  t.classList.toggle("hide", !!hide);
 }
 function renderDots() {
-  const got = done[current] || [];
+  const got = done[doneKey()] || [];
   $("dots").innerHTML = "";
-  scene().lines.forEach((_, i) => {
+  items().forEach((_, i) => {
     const d = document.createElement("span");
     d.className = "dot" + (got.includes(i) ? " ok" : "") + (i === idx ? " now" : "");
     $("dots").append(d);
   });
 }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function renderChoices() {
+  const right = items()[idx][2];
+  const pool = [...new Set(SCENES.flatMap(s => s.lines.map(l => l[2])))].filter(j => j !== right);
+  const opts3 = shuffle([right, ...shuffle(pool).slice(0, 2)]);
+  const box = $("choices"); box.innerHTML = ""; box.hidden = false;
+  for (const o of opts3) {
+    const b = document.createElement("button"); b.className = "choice"; b.textContent = o;
+    b.onclick = () => {
+      if (box.dataset.locked) return;
+      if (o === right) {
+        b.classList.add("right"); box.dataset.locked = "1";
+        renderTarget(null, false);
+        $("result").textContent = "せいかい！ ⭐"; $("result").className = "result good";
+        award(); $("next").hidden = false; $("mic").hidden = micBroken;
+        $("heard").textContent = "🎤でまねして言ってみてもいいよ";
+        speak("Great!");
+      } else {
+        b.classList.add("wrong"); b.disabled = true;
+        $("result").textContent = "ちがうみたい。もう一回きいてみよう"; $("result").className = "result bad";
+        speak(itemText(idx));
+      }
+    };
+    box.append(b);
+  }
+  delete box.dataset.locked;
+}
+function resetCard() {
+  clearTimeout(advanceTimer); stopListening();
+  $("result").textContent = ""; $("result").className = "result";
+  $("reply").hidden = true; $("hints").hidden = true; $("hintBtn").hidden = true; $("choices").hidden = true;
+  $("next").hidden = true; $("skip").hidden = true; $("selfOk").hidden = true;
+  $("next").textContent = "つぎへ ▶";
+}
 function showCard(autoplay) {
-  stopListening();
-  const s = scene();
-  if (idx >= s.lines.length) {
-    $("target").innerHTML = ""; $("target").textContent = "🎉 ぜんぶできたね！";
-    $("ja").textContent = "ほかの場面にもチャレンジしよう";
-    $("role").textContent = ""; $("result").textContent = ""; $("heard").textContent = "";
-    $("mic").hidden = true; $("listen").hidden = true; $("selfOk").hidden = true; $("skip").hidden = true;
+  resetCard();
+  const list = items();
+  if (idx >= list.length) {
+    $("target").innerHTML = ""; $("target").textContent = "🎉 ぜんぶできたね！"; $("target").classList.remove("hide");
+    $("ja").textContent = mode === "answer" ? "つぎのレベルにもチャレンジしよう" : "ほかの場面にもチャレンジしよう";
+    $("role").textContent = ""; $("heard").textContent = "";
+    $("mic").hidden = true; $("listen").hidden = true;
     $("next").hidden = false; $("next").textContent = "🔁 もう一回さいしょから";
     renderDots(); return;
   }
-  const [who, en, ja] = s.lines[idx];
-  tries = 0;
-  $("role").textContent = who === "k" ? "こどものセリフ" : "おとなのセリフ";
-  $("ja").textContent = ja;
-  $("result").textContent = ""; $("result").className = "result";
-  $("heard").textContent = "ポコのあとに、🎤を押して言ってね";
-  $("mic").hidden = micBroken; $("listen").hidden = false;
-  $("selfOk").hidden = !micBroken; $("next").hidden = true; $("skip").hidden = true;
-  $("next").textContent = "つぎへ ▶";
-  renderTarget(null); renderDots();
-  if (autoplay) speak(en);
+  tries = 0; $("listen").hidden = false;
+  if (mode === "repeat") {
+    const [who, , ja] = list[idx];
+    $("role").textContent = who === "k" ? "こどものセリフ" : "おとなのセリフ";
+    $("ja").textContent = ja;
+    $("heard").textContent = "ポコのあとに、🎤を押して言ってね";
+    $("mic").hidden = micBroken; $("selfOk").hidden = !micBroken;
+    renderTarget(null, opts.hide);
+  } else if (mode === "listen") {
+    $("role").textContent = "ポコはなんて言ったかな？";
+    $("ja").textContent = "";
+    $("heard").textContent = "🔊でなんどでもきけるよ";
+    $("mic").hidden = true;
+    renderTarget(null, true); renderChoices();
+  } else {
+    const q = list[idx];
+    $("role").textContent = "ポコのしつもん";
+    $("ja").textContent = q.ja;
+    $("heard").textContent = "🎤を押して、英語で答えてね";
+    $("mic").hidden = micBroken; $("selfOk").hidden = !micBroken; $("hintBtn").hidden = false;
+    $("hints").innerHTML = "";
+    for (const [en, ja] of q.hints) {
+      const c = document.createElement("button"); c.className = "chip"; c.textContent = en;
+      const sm = document.createElement("small"); sm.textContent = ja; c.append(sm);
+      c.onclick = () => speak(en);
+      $("hints").append(c);
+    }
+    renderTarget(null, false);
+  }
+  renderDots();
+  if (autoplay) speak(itemText(idx));
 }
 function award() {
-  const list = done[current] || (done[current] = []);
+  const k = doneKey(), list = done[k] || (done[k] = []);
   if (!list.includes(idx)) list.push(idx);
   store.set("oyako-done", done); renderStars(); renderTabs(); renderDots();
 }
+function goNext() { idx++; showCard(true); }
 
 // ---------- mic ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 function breakMic(msg) {
   micBroken = true;
-  $("mic").hidden = true; $("selfOk").hidden = false;
+  $("mic").hidden = true;
+  if (mode !== "listen" && idx < items().length) $("selfOk").hidden = false;
   $("warn").hidden = false;
   $("warn").innerHTML = "<b>この画面ではマイクが使えません</b>" + msg;
 }
 function stopListening() { try { recog && recog.abort(); } catch {} listening = false; $("mic").classList.remove("rec"); }
-function judge(alts) {
-  const [, en] = scene().lines[idx];
+function showHeard(text) {
+  $("heard").innerHTML = "きこえた言葉: <b></b>"; $("heard").querySelector("b").textContent = text || "（きこえなかったよ）";
+}
+function judgeRepeat(alts) {
+  const en = itemText(idx);
   let best = { score: -1 }, bestText = "";
   for (const a of alts) { const m = match(en, a); if (m.score > best.score) { best = m; bestText = a; } }
   tries++;
-  $("heard").innerHTML = "きこえた言葉: <b></b>"; $("heard").querySelector("b").textContent = bestText || "（きこえなかったよ）";
-  renderTarget(best.hit);
+  showHeard(bestText);
+  renderTarget(best.hit, false);
+  if (mode === "listen") {        // 正解後のまねっこはおまけ
+    $("result").textContent = best.score >= 0.8 ? "Great! じょうず！" : "おしい！もう一回まねしてみよう";
+    $("result").className = "result " + (best.score >= 0.8 ? "good" : "close");
+    return;
+  }
   const pass = opts.easy ? 0.6 : 0.8;
   const r = $("result");
   if (best.score >= pass) {
     r.textContent = best.score === 1 ? "Perfect! ⭐ かんぺき！" : "Great! ⭐ じょうず！"; r.className = "result good";
     award(); $("mic").hidden = true; $("next").hidden = false; $("skip").hidden = true;
     speak(best.score === 1 ? "Perfect!" : "Great job!");
-    setTimeout(() => { if (!$("next").hidden && $("result").classList.contains("good")) { idx++; showCard(true); } }, 2200);
+    const at = idx;
+    advanceTimer = setTimeout(() => { if (idx === at && mode === "repeat") goNext(); }, 2200);
   } else {
     r.textContent = best.score >= 0.4 ? "おしい！赤いところをもう一回" : "もう一回きいてみよう";
     r.className = "result " + (best.score >= 0.4 ? "close" : "bad");
@@ -333,9 +498,29 @@ function judge(alts) {
     if (best.score < 0.4) speak(en);
   }
 }
+function judgeAnswer(alts) {
+  const q = items()[idx];
+  let res = null, said = alts[0] || "";
+  for (const a of alts) { res = answerCheck(q, a); if (res) { said = a; break; } }
+  tries++;
+  showHeard(said);
+  const r = $("result");
+  if (res) {
+    r.textContent = "⭐ こたえられたね！"; r.className = "result good";
+    $("replyEn").textContent = res.reply[0]; $("replyJa").textContent = res.reply[1]; $("reply").hidden = false;
+    award(); $("mic").hidden = true; $("next").hidden = false; $("skip").hidden = true; $("hints").hidden = true; $("hintBtn").hidden = true;
+    speak(res.reply[0]);
+  } else {
+    r.textContent = said ? "うーん、もう一回！💡ヒントも見てね" : "きこえなかったよ。もう一回！";
+    r.className = "result close";
+    if (tries >= 2) { $("hints").hidden = false; $("hintBtn").hidden = true; }
+    if (tries >= 3) $("skip").hidden = false;
+  }
+}
 $("mic").onclick = () => {
   if (!SR) return;
   if (listening) { try { recog.stop(); } catch {} return; }
+  clearTimeout(advanceTimer);
   try { speechSynthesis.cancel(); } catch {}
   recog = new SR();
   recog.lang = "en-US"; recog.interimResults = true; recog.maxAlternatives = 5; recog.continuous = false;
@@ -348,20 +533,26 @@ $("mic").onclick = () => {
   };
   recog.onerror = ev => {
     if (ev.error === "not-allowed" || ev.error === "service-not-allowed" || ev.error === "audio-capture")
-      breakMic("マイクの使用が許可されていません。ブラウザの設定でマイクを許可するか、下の「⭐ 言えた！」で、おうちの人が判定してあげてください。");
+      breakMic("マイクの使用が許可されていません。ブラウザの設定でマイクを許可するか、「⭐ 言えた！」で、おうちの人が判定してあげてください。");
   };
   recog.onend = () => {
     listening = false; $("mic").classList.remove("rec");
     if (micBroken) return;
-    judge(finalAlts || (interim ? [interim] : [""]));
+    const alts = finalAlts || (interim ? [interim] : [""]);
+    mode === "answer" ? judgeAnswer(alts) : judgeRepeat(alts);
   };
   try { recog.start(); } catch { breakMic("マイクを開始できませんでした。"); }
 };
 
-$("listen").onclick = () => speak(scene().lines[idx][1]);
-$("next").onclick = () => { if (idx >= scene().lines.length) idx = 0; else idx++; showCard(true); };
-$("skip").onclick = () => { idx++; showCard(true); };
+$("listen").onclick = () => speak(itemText(idx));
+$("next").onclick = () => { if (idx >= items().length) { idx = 0; showCard(true); } else goNext(); };
+$("skip").onclick = goNext;
+$("hintBtn").onclick = () => { $("hints").hidden = false; $("hintBtn").hidden = true; };
 $("selfOk").onclick = () => { award(); speak("Great job!"); idx++; setTimeout(() => showCard(true), 900); };
+function setMode(m) { mode = m; store.set("oyako-mode", m); idx = 0; renderModes(); renderTabs(); showCard(false); }
+$("modeRepeat").onclick = () => setMode("repeat");
+$("modeListen").onclick = () => setMode("listen");
+$("modeAnswer").onclick = () => setMode("answer");
 
 function renderOpts() {
   $("slow").setAttribute("aria-pressed", opts.slow);
@@ -369,11 +560,11 @@ function renderOpts() {
   $("easy").setAttribute("aria-pressed", opts.easy);
 }
 for (const [id, key] of [["slow", "slow"], ["hideTxt", "hide"], ["easy", "easy"]])
-  $(id).onclick = () => { opts[key] = !opts[key]; store.set("oyako-opts", opts); renderOpts(); if (key === "hide" && idx < scene().lines.length) renderTarget(null); };
+  $(id).onclick = () => { opts[key] = !opts[key]; store.set("oyako-opts", opts); renderOpts(); if (key === "hide" && mode === "repeat" && idx < items().length) renderTarget(null, opts.hide); };
 
 // ---------- boot ----------
 if (!SR) breakMic("このブラウザは音声認識に対応していません。パソコンやAndroidのChrome、iPhoneのSafariで開くと、声で判定できます。今は「⭐ 言えた！」で、おうちの人が判定してあげてください。");
-renderOpts(); renderTabs(); renderStars(); showCard(false);
+renderOpts(); renderModes(); renderTabs(); renderStars(); showCard(false);
 $("heard").textContent = "🔊 を押すとポコが話します";
 </script>
 
