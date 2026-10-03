@@ -122,6 +122,13 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 .choice.wrong { border-color: var(--miss); background: var(--miss-soft); color: var(--miss); }
 .how[hidden] { display: none !important; }
 .stack { display: grid; gap: 20px; min-width: 0; }
+.prefs { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: space-between; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; }
+.seg { display: inline-grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--bg); border-radius: 12px; padding: 4px; }
+.seg button { border: 0; background: transparent; border-radius: 9px; padding: 6px 12px; font-weight: 700; font-size: .9rem; }
+.seg button[aria-checked="true"] { background: var(--sun); color: var(--sun-ink); }
+.speed { display: flex; align-items: center; gap: 8px; flex: 1 1 220px; min-width: 0; font-weight: 700; font-size: .9rem; }
+.speed input { flex: 1; min-width: 80px; accent-color: var(--sky); }
+.speed output { font-variant-numeric: tabular-nums; font-size: .8rem; color: var(--muted); min-width: 7.5em; }
 .views { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .view { border: 2px solid var(--line); background: var(--paper); border-radius: 16px; padding: 12px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; }
 .view[aria-selected="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
@@ -177,9 +184,21 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 <body>
 <div class="wrap">
   <header>
-    <h1>おやこ英会話タイム<small>英語でたたかって、ステージをすすもう</small></h1>
+    <h1>おやこ英会話タイム<small id="tagline">英語でたたかって、ステージをすすもう</small></h1>
     <div class="stars" id="stars" aria-live="polite">⭐ 0</div>
   </header>
+
+  <section class="prefs" aria-label="せってい">
+    <div class="seg" role="radiogroup" aria-label="バージョン">
+      <button id="profKid" role="radio">🧒 こども</button>
+      <button id="profAdult" role="radio">🧑 おとな</button>
+    </div>
+    <label class="speed" for="speed"><span>🔊 はやさ</span>
+      <input type="range" id="speed" min="0.4" max="1.2" step="0.1">
+      <output id="speedVal" for="speed"></output>
+      <button type="button" class="btn small" id="speedTest">ためす</button>
+    </label>
+  </section>
 
   <div class="views" role="tablist" aria-label="あそびかた">
     <button class="view" id="viewAdv" role="tab">⚔️ ぼうけん</button>
@@ -265,7 +284,6 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     </div>
     <div class="warn" id="warn" hidden></div>
     <div class="settings">
-      <button class="btn" id="slow" aria-pressed="true">🐢 ゆっくり</button>
       <button class="btn" id="hideTxt" aria-pressed="false">🙈 英語をかくす</button>
       <button class="btn" id="easy" aria-pressed="false">🧒 あまくはんてい</button>
     </div>
@@ -290,7 +308,7 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 </div>
 
 <script>
-const SCENES = [
+const KID_SCENES = [
   { id: "morning", ico: "🌞", name: "あさ", lines: [
     ["g", "Good morning!", "おはよう！"], ["k", "Good morning!", "おはよう！"],
     ["g", "Did you sleep well?", "よくねむれた？"], ["k", "Yes, I did!", "うん、ねむれたよ！"],
@@ -330,7 +348,7 @@ const ANIMALS = ["dog","dogs","cat","cats","rabbit","rabbits","bear","bears","li
 const PLACES = ["park","zoo","beach","sea","mountain","mountains","shop","store","supermarket","school","pool","aquarium","library","museum","disneyland","station","restaurant","playground"];
 const PEOPLE = ["mom","mommy","mama","dad","daddy","papa","grandma","grandpa","sister","brother","baby","you","poko","family","everyone","teacher"];
 const FEEL = ["good","fine","great","happy","ok","tired","sleepy","sad","hungry","excited","sick","angry"];
-const LEVELS = [
+const KID_LEVELS = [
   { id: "easy", ico: "🌱", name: "かんたん", qs: [
     { q: "Do you like apples?", ja: "りんごはすき？", yn: true, yes: ["Me too! Apples are yummy!", "ぼくも！りんごおいしいよね！"], no: ["Okay! What fruit do you like?", "そっか！どんなくだものがすき？"], hints: [["Yes, I do!", "うん、すき！"], ["No, I don't.", "ううん、すきじゃない。"]] },
     { q: "Are you hungry?", ja: "おなかすいた？", yn: true, yes: ["Let's eat something yummy!", "おいしいもの食べよう！"], no: ["Okay! Maybe later.", "わかった！またあとでね。"], hints: [["Yes, I am!", "うん、すいた！"], ["No, I'm not.", "ううん、すいてない。"]] },
@@ -358,11 +376,15 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-let done = store.get("oyako-done", {});
-let opts = Object.assign({ slow: true, hide: false, easy: false }, store.get("oyako-opts", {}));
+let profile = store.get("oyako-profile", "kid") === "adult" ? "adult" : "kid";
+const K = name => profile === "adult" ? name + "-adult" : name;   // おとなは進みぐあいを別に保存
+let SCENES, LEVELS, STAGES, TITLES;
+let done = {};
+let opts = Object.assign({ rate: 0.6, hide: false, easy: false }, store.get("oyako-opts", {}));
+if (!(opts.rate >= 0.4 && opts.rate <= 1.2)) opts.rate = 0.6;
 let mode = store.get("oyako-mode", "repeat");
 if (!["repeat", "listen", "answer"].includes(mode)) mode = "repeat";
-let pos = store.get("oyako-pos", {});          // mode -> tab id
+let pos = {};          // mode -> tab id
 let idx = 0, tries = 0, recog = null, listening = false, micBroken = false, advanceTimer = null;
 const $ = id => document.getElementById(id);
 
@@ -384,8 +406,8 @@ function speak(text, onend) {
     u.lang = "en-US";
     const v = voices.find(v => /en-US/i.test(v.lang) && /Samantha|Google US|Jenny|Aria/i.test(v.name)) || voices.find(v => /en-US/i.test(v.lang)) || voices[0];
     if (v) u.voice = v;
-    u.rate = opts.slow ? 0.72 : 0.95;
-    u.pitch = 1.15;
+    u.rate = opts.rate;
+    u.pitch = profile === "adult" ? 1 : 1.15;
     $("bear").classList.add("talk");
     u.onend = u.onerror = () => { $("bear").classList.remove("talk"); onend && onend(); };
     speechSynthesis.speak(u);
@@ -424,8 +446,8 @@ function answerCheck(q, heard) {
   if (!w.length) return null;
   const norm = list => list.map(x => SAME[x] || x);
   if (q.yn) {
-    const no = w.some(x => x === "no" || x === "not" || x === "don't" || x === "can't" || x === "isn't" || x === "it's" && w.includes("rainy"));
-    const yes = w.some(x => ["yes", "do", "am", "can", "is", "sure", "yummy", "love", "like"].includes(x));
+    const no = w.some(x => x === "no" || x === "not" || x === "don't" || x === "can't" || x === "isn't" || ["haven't", "didn't", "wasn't", "aren't", "never", "nah"].includes(x) || x === "it's" && w.includes("rainy"));
+    const yes = w.some(x => ["yes", "do", "am", "can", "is", "sure", "yummy", "love", "like", "have", "i've", "did", "was", "are", "usually", "sometimes", "often", "of"].includes(x));
     if (no) return { reply: q.no };
     if (yes) return { reply: q.yes };
     return null;
@@ -453,7 +475,7 @@ function renderTabs() {
     const b = document.createElement("button");
     b.className = "tab"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", g.id === cur);
     b.innerHTML = `<span class="ico" aria-hidden="true">${g.ico}</span><span class="lbl">${g.name}</span><span class="got">${(done[key] || []).length}/${n}</span>`;
-    b.onclick = () => { pos[mode] = g.id; store.set("oyako-pos", pos); idx = 0; renderTabs(); showCard(true); };
+    b.onclick = () => { pos[mode] = g.id; store.set(K("oyako-pos"), pos); idx = 0; renderTabs(); showCard(true); };
     $("tabs").append(b);
   }
 }
@@ -525,7 +547,7 @@ function showCard(autoplay) {
   tries = 0; $("listen").hidden = false;
   if (mode === "repeat") {
     const [who, , ja] = list[idx];
-    $("role").textContent = who === "k" ? "こどものセリフ" : "おとなのセリフ";
+    $("role").textContent = profile === "adult" ? (who === "k" ? "あなたのセリフ" : "相手のセリフ") : (who === "k" ? "こどものセリフ" : "おとなのセリフ");
     $("ja").textContent = ja;
     $("heard").textContent = "ポコのあとに、🎤を押して言ってね";
     $("mic").hidden = micBroken; $("selfOk").hidden = !micBroken;
@@ -557,7 +579,7 @@ function showCard(autoplay) {
 function award() {
   const k = doneKey(), list = done[k] || (done[k] = []);
   if (!list.includes(idx)) { list.push(idx); gainExp(1); }
-  store.set("oyako-done", done); renderStars(); renderTabs(); renderDots();
+  store.set(K("oyako-done"), done); renderStars(); renderTabs(); renderDots();
 }
 function goNext() { idx++; showCard(true); }
 
@@ -660,17 +682,22 @@ $("modeRepeat").onclick = () => setMode("repeat");
 $("modeListen").onclick = () => setMode("listen");
 $("modeAnswer").onclick = () => setMode("answer");
 
+function speedLabel(r) { return r <= 0.5 ? "とてもゆっくり" : r <= 0.7 ? "ゆっくり" : r <= 0.9 ? "ふつう" : "はやい"; }
 function renderOpts() {
-  $("slow").setAttribute("aria-pressed", opts.slow);
+  $("speed").value = opts.rate;
+  $("speedVal").textContent = opts.rate.toFixed(1) + "x " + speedLabel(opts.rate);
   $("hideTxt").setAttribute("aria-pressed", opts.hide);
   $("easy").setAttribute("aria-pressed", opts.easy);
 }
-for (const [id, key] of [["slow", "slow"], ["hideTxt", "hide"], ["easy", "easy"]])
+$("speed").oninput = () => { opts.rate = Math.round(Number($("speed").value) * 10) / 10; store.set("oyako-opts", opts); renderOpts(); };
+$("speed").onchange = () => speak(profile === "adult" ? "Nice to meet you." : "Good morning!");
+$("speedTest").onclick = () => speak(profile === "adult" ? "Nice to meet you." : "Good morning!");
+for (const [id, key] of [["hideTxt", "hide"], ["easy", "easy"]])
   $(id).onclick = () => { opts[key] = !opts[key]; store.set("oyako-opts", opts); renderOpts(); if (key === "hide" && mode === "repeat" && idx < items().length) renderTarget(null, opts.hide); };
 
 
 // ---------- ぼうけん（RPG） ----------
-const STAGES = [
+const KID_STAGES = [
   { id: "s1", ico: "🌲", name: "あさの森", scene: "morning", foe: "🐛", foeName: "ねぼすけムシ" },
   { id: "s2", ico: "🏡", name: "ごはんの村", scene: "meal", foe: "🐷", foeName: "はらぺこブー" },
   { id: "s3", ico: "🫧", name: "あわあわ湖", scene: "bath", foe: "🐙", foeName: "あわあわタコ" },
@@ -681,9 +708,9 @@ const STAGES = [
   { id: "s8", ico: "🏯", name: "おしゃべり城", level: "normal", foe: "🐲", foeName: "おしゃべりドラゴン", boss: true },
   { id: "s9", ico: "🌋", name: "まおうの城", level: "challenge", foe: "👑", foeName: "だんまりまおう", boss: true },
 ];
-const TITLES = [[1, "みならい"], [3, "かけだし勇者"], [5, "ことばの戦士"], [8, "えいごの騎士"], [12, "ことばの勇者"], [16, "でんせつの勇者"]];
+const KID_TITLES = [[1, "みならい"], [3, "かけだし勇者"], [5, "ことばの戦士"], [8, "えいごの騎士"], [12, "ことばの勇者"], [16, "でんせつの勇者"]];
 const GEAR = [[1, "🐻", ""], [2, "🗡️", "木のけん"], [4, "🛡️", "まもりのたて"], [6, "🎒", "ぼうけんバッグ"], [9, "🪄", "ことばのつえ"], [13, "👑", "勇者のかんむり"]];
-let rpg = Object.assign({ exp: 0, cleared: {}, streak: 0, last: null }, store.get("oyako-rpg", {}));
+let rpg = {};
 let view = store.get("oyako-view", "adv");
 let battle = null;
 
@@ -698,7 +725,7 @@ function levelInfo(exp) {
 const titleOf = lv => TITLES.filter(t => lv >= t[0]).pop()[1];
 const gearOf = lv => GEAR.filter(g => lv >= g[0]);
 function heroIcon(lv) { return gearOf(lv).map(g => g[1]).join(""); }
-function saveRpg() { store.set("oyako-rpg", rpg); }
+function saveRpg() { store.set(K("oyako-rpg"), rpg); }
 function gainExp(n) {
   const before = levelInfo(rpg.exp).lv;
   rpg.exp += n; saveRpg(); renderStatus();
@@ -837,7 +864,7 @@ function battleJudge(alts) {
     let best = { score: -1 }, txt = "";
     for (const a of alts) { const m = match(st.en, a); if (m.score > best.score) { best = m; txt = a; } }
     bShowHeard(txt); setTarget(st.en, false, best.hit);
-    if (best.score >= (opts.easy ? 0.6 : 0.7)) hit(best.score === 1 ? "Perfect!" : "Great!"); else miss();
+    if (best.score >= (opts.easy ? 0.6 : profile === "adult" ? 0.8 : 0.7)) hit(best.score === 1 ? "Perfect!" : "Great!"); else miss();
   }
 }
 $("bMic").onclick = () => startRecog($("bMic"), $("bHeard"), battleJudge);
@@ -903,8 +930,106 @@ function lose() {
 $("winBtn").onclick = endBattle;
 $("winRetry").onclick = () => { const i = battle.i; startBattle(i); };
 
+// ---------- おとなバージョンのデータ ----------
+const ADULT_SCENES = [
+  { id: "intro", ico: "👋", name: "自己紹介", lines: [
+    ["g", "Hi, nice to meet you.", "はじめまして。"], ["k", "Nice to meet you, too. I'm Yuki.", "こちらこそ。ユキです。"],
+    ["g", "Where are you from?", "ご出身はどちらですか？"], ["k", "I'm from Osaka, Japan.", "日本の大阪出身です。"],
+    ["g", "What do you do?", "お仕事は何をされていますか？"], ["k", "I work at a trading company.", "商社で働いています。"],
+    ["g", "How long have you been there?", "どのくらい働いているんですか？"], ["k", "About five years.", "5年くらいです。"] ] },
+  { id: "cafe", ico: "☕", name: "カフェ", lines: [
+    ["g", "Hi, what can I get for you?", "いらっしゃいませ、ご注文は？"], ["k", "Can I get a medium latte, please?", "ラテのMサイズをお願いします。"],
+    ["g", "For here or to go?", "店内ですか、お持ち帰りですか？"], ["k", "To go, please.", "持ち帰りでお願いします。"],
+    ["g", "Anything else?", "ほかにご注文はありますか？"], ["k", "No, that's all. Thanks.", "いえ、以上です。ありがとう。"],
+    ["g", "That'll be five dollars.", "5ドルになります。"], ["k", "Can I pay by card?", "カードで払えますか？"] ] },
+  { id: "shop", ico: "🛍️", name: "買い物", lines: [
+    ["g", "Can I help you find something?", "何かお探しですか？"], ["k", "I'm just looking, thanks.", "見ているだけです、ありがとう。"],
+    ["k", "Do you have this in a smaller size?", "これの小さいサイズはありますか？"], ["g", "Let me check for you.", "確認しますね。"],
+    ["k", "Can I try it on?", "試着してもいいですか？"], ["g", "Sure, the fitting room is over there.", "どうぞ、試着室はあちらです。"],
+    ["k", "I'll take it.", "これにします。"] ] },
+  { id: "restaurant", ico: "🍽️", name: "レストラン", lines: [
+    ["g", "How many people?", "何名様ですか？"], ["k", "A table for two, please.", "2人でお願いします。"],
+    ["g", "Are you ready to order?", "ご注文はお決まりですか？"], ["k", "What do you recommend?", "おすすめは何ですか？"],
+    ["k", "I'll have the chicken, please.", "チキンをお願いします。"], ["g", "How is everything?", "お料理はいかがですか？"],
+    ["k", "It's delicious, thank you.", "とてもおいしいです。"], ["k", "Could we get the check, please?", "お会計をお願いします。"] ] },
+  { id: "travel", ico: "✈️", name: "旅行", lines: [
+    ["g", "May I see your passport, please?", "パスポートを拝見します。"], ["k", "Here you are.", "はい、どうぞ。"],
+    ["g", "What's the purpose of your visit?", "渡航の目的は何ですか？"], ["k", "I'm here on vacation.", "観光です。"],
+    ["k", "Excuse me, where is the station?", "すみません、駅はどこですか？"], ["g", "Go straight and turn left.", "まっすぐ行って左です。"],
+    ["k", "How long does it take?", "どのくらいかかりますか？"], ["g", "About ten minutes on foot.", "歩いて10分くらいです。"] ] },
+  { id: "work", ico: "💼", name: "仕事", lines: [
+    ["g", "How was your weekend?", "週末はどうでしたか？"], ["k", "It was great. I went hiking.", "よかったです。ハイキングに行きました。"],
+    ["g", "Do you have a minute?", "少しお時間ありますか？"], ["k", "Sure, what's up?", "はい、どうしました？"],
+    ["g", "Could you send me the file?", "ファイルを送ってもらえますか？"], ["k", "No problem. I'll send it right away.", "了解です。すぐ送ります。"],
+    ["k", "Sorry, could you say that again?", "すみません、もう一度言ってもらえますか？"], ["g", "Let's talk about it in the meeting.", "会議で話しましょう。"] ] },
+];
+const HOBBIES = ["reading","music","movies","games","cooking","running","hiking","traveling","travelling","shopping","yoga","soccer","baseball","tennis","golf","fishing","camping","drawing","singing","dancing","swimming","gardening","photography","karaoke","anime","netflix","gym"];
+const SEASONS = ["spring","summer","fall","autumn","winter"];
+const TRIPS = ["hawaii","america","london","paris","france","italy","spain","korea","taiwan","australia","canada","york","england","germany","thailand","okinawa","hokkaido","europe","asia","egypt","vietnam","singapore","switzerland","iceland","disneyland"];
+const ADULT_LEVELS = [
+  { id: "easy", ico: "🌱", name: "Yes / No", qs: [
+    { q: "Do you like coffee?", ja: "コーヒーは好きですか？", yn: true, yes: ["Me too. I drink it every morning.", "私もです。毎朝飲みます。"], no: ["I see. Do you prefer tea?", "そうなんですね。紅茶派ですか？"], hints: [["Yes, I do. I love it.", "はい、大好きです。"], ["No, I prefer tea.", "いいえ、紅茶派です。"]] },
+    { q: "Are you busy these days?", ja: "最近忙しいですか？", yn: true, yes: ["Take care of yourself!", "無理しないでくださいね！"], no: ["That's nice. Enjoy your free time!", "いいですね。自由な時間を楽しんで！"], hints: [["Yes, I'm very busy.", "はい、とても忙しいです。"], ["Not really.", "それほどでもないです。"]] },
+    { q: "Have you ever been abroad?", ja: "海外に行ったことはありますか？", yn: true, yes: ["Nice! I'd love to hear about it.", "いいですね！話を聞きたいです。"], no: ["Maybe someday soon!", "いつか行けるといいですね！"], hints: [["Yes, I have. I went to Hawaii.", "はい、ハワイに行きました。"], ["No, I haven't.", "いいえ、ありません。"]] },
+    { q: "Do you cook at home?", ja: "家で料理をしますか？", yn: true, yes: ["Great! Home cooking is the best.", "いいですね！家庭料理が一番です。"], no: ["Eating out is fun, too!", "外食も楽しいですよね！"], hints: [["Yes, I cook every day.", "はい、毎日作ります。"], ["Not often.", "あまりしません。"]] },
+    { q: "Did you sleep well last night?", ja: "昨夜はよく眠れましたか？", yn: true, yes: ["Good! Have a great day.", "よかった！良い一日を。"], no: ["Oh no. Get some rest tonight.", "あら。今夜はゆっくり休んでね。"], hints: [["Yes, I did.", "はい、眠れました。"], ["No, not really.", "いいえ、あまり。"]] },
+    { q: "Do you like sports?", ja: "スポーツは好きですか？", yn: true, yes: ["Me too! Watching or playing?", "私も！見る派？やる派？"], no: ["That's okay. Everyone is different.", "大丈夫、人それぞれです。"], hints: [["Yes, I love soccer.", "はい、サッカーが大好きです。"], ["Not really.", "あまり好きではないです。"]] } ] },
+  { id: "normal", ico: "🌼", name: "スモールトーク", qs: [
+    { q: "What do you do for fun?", ja: "趣味は何ですか？", keys: HOBBIES.concat(["like","enjoy","watching","playing","love"]), pick: HOBBIES, reply: ["{x}? That sounds fun!", "{x}ですか？楽しそうですね！"], fallback: ["That sounds fun!", "楽しそうですね！"], hints: [["I like watching movies.", "映画を見るのが好きです。"], ["I enjoy cooking.", "料理を楽しんでいます。"]] },
+    { q: "Where do you live?", ja: "どこに住んでいますか？", keys: ["live","in","near","city","town","tokyo","osaka","kyoto","nagoya","yokohama","fukuoka","sapporo","japan","kobe","sendai","hiroshima"], reply: ["Oh, that's a nice place!", "いいところですね！"], hints: [["I live in Tokyo.", "東京に住んでいます。"], ["I live near the station.", "駅の近くに住んでいます。"]] },
+    { q: "What did you have for lunch?", ja: "お昼は何を食べましたか？", keys: FOODS.concat(["sandwich","salad","pasta","bento","had","ate","lunch"]), pick: FOODS.concat(["sandwich","salad","pasta","bento"]), reply: ["{x}! Sounds good.", "{x}、いいですね。"], fallback: ["Sounds good!", "いいですね！"], hints: [["I had ramen.", "ラーメンを食べました。"], ["I ate a sandwich.", "サンドイッチを食べました。"]] },
+    { q: "How do you get to work?", ja: "通勤手段は何ですか？", keys: ["train","bus","car","bike","bicycle","walk","foot","subway","taxi","drive","take","ride"], reply: ["I see. Thanks for sharing!", "なるほど、教えてくれてありがとう！"], hints: [["I take the train.", "電車で行きます。"], ["I walk to work.", "歩いて行きます。"]] },
+    { q: "What's your favorite season?", ja: "好きな季節は？", keys: SEASONS, pick: SEASONS, reply: ["{x}! Me too.", "{x}、いいですね。"], hints: [["I like spring.", "春が好きです。"], ["Summer is my favorite.", "夏が一番好きです。"]] },
+    { q: "How are you today?", ja: "今日の調子はどうですか？", keys: FEEL.concat(["busy","stressed","alright","bad","pretty","thanks"]), reply: ["Thanks for telling me. Have a nice day!", "教えてくれてありがとう。良い一日を！"], hints: [["I'm good, thanks. And you?", "元気です。あなたは？"], ["Pretty tired, actually.", "実はちょっと疲れています。"]] } ] },
+  { id: "challenge", ico: "🔥", name: "チャレンジ", qs: [
+    { q: "What did you do last weekend?", ja: "先週末は何をしましたか？", keys: ["went","watched","played","stayed","visited","cleaned","met","had","did","relaxed","shopping","saw","worked","cooked","slept"], reply: ["Sounds like a nice weekend!", "いい週末でしたね！"], hints: [["I went shopping with my family.", "家族と買い物に行きました。"], ["I stayed home and relaxed.", "家でのんびりしました。"]] },
+    { q: "Why do you want to learn English?", ja: "なぜ英語を学びたいのですか？", keys: ["because","want","travel","work","job","talk","friends","children","kids","movies","business","speak","communicate"], reply: ["That's a great reason. Keep going!", "素敵な理由ですね。がんばりましょう！"], hints: [["Because I want to travel abroad.", "海外旅行をしたいからです。"], ["I want to use English at work.", "仕事で英語を使いたいです。"]] },
+    { q: "What are your plans for tomorrow?", ja: "明日の予定は？", keys: ["going","will","plan","plans","work","meet","go","stay","nothing","gonna","have","busy"], reply: ["Have a great day tomorrow!", "明日もいい日になりますように！"], hints: [["I'm going to work.", "仕事に行きます。"], ["I'm going to meet my friend.", "友達に会う予定です。"]] },
+    { q: "Tell me about your family.", ja: "家族について教えてください。", keys: ["have","family","wife","husband","son","daughter","kids","children","mother","father","parents","sister","brother","live","my","dog","cat"], reply: ["Thank you for sharing. Sounds lovely!", "教えてくれてありがとう。素敵ですね！"], hints: [["I have a husband and two kids.", "夫と子どもが2人います。"], ["I live with my parents.", "両親と住んでいます。"]] },
+    { q: "What's something you're good at?", ja: "得意なことは何ですか？", keys: ["good","can","cooking","singing","sports","drawing","swimming","i'm","running","playing","talking","math"], reply: ["Wow, that's impressive!", "すごいですね！"], hints: [["I'm good at cooking.", "料理が得意です。"], ["I can swim very fast.", "泳ぐのがとても速いです。"]] },
+    { q: "If you could go anywhere, where would you go?", ja: "どこへでも行けるなら、どこへ行きたい？", keys: TRIPS.concat(["go","would","want"]), pick: TRIPS, reply: ["{x}? Great choice!", "{x}？いいですね！"], fallback: ["Great choice!", "いいですね！"], hints: [["I would go to Hawaii.", "ハワイに行きたいです。"], ["I want to go to Italy.", "イタリアに行きたいです。"]] } ] },
+];
+const ADULT_STAGES = [
+  { id: "s1", ico: "🏙️", name: "はじまりの街", scene: "intro", foe: "🗿", foeName: "だんまりゴーレム" },
+  { id: "s2", ico: "☕", name: "カフェ通り", scene: "cafe", foe: "🦝", foeName: "ちゅうもんタヌキ" },
+  { id: "s3", ico: "🛍️", name: "ショッピング街", scene: "shop", foe: "🦚", foeName: "おしゃれクジャク" },
+  { id: "s4", ico: "🍽️", name: "レストラン広場", scene: "restaurant", foe: "🦞", foeName: "グルメロブスター" },
+  { id: "s5", ico: "✈️", name: "空港ゲート", scene: "travel", foe: "🦅", foeName: "にゅうこくイーグル" },
+  { id: "s6", ico: "🏢", name: "オフィスビル", scene: "work", foe: "🦉", foeName: "ミーティングフクロウ" },
+  { id: "s7", ico: "🕳️", name: "しつもん洞くつ", level: "easy", foe: "🐺", foeName: "イエスノーウルフ", boss: true },
+  { id: "s8", ico: "🏰", name: "スモールトーク城", level: "normal", foe: "🐉", foeName: "ざつだんドラゴン", boss: true },
+  { id: "s9", ico: "🌋", name: "まおうの城", level: "challenge", foe: "🧛", foeName: "ことばの魔王", boss: true },
+];
+const ADULT_TITLES = [[1, "英語ビギナー"], [3, "トラベラー"], [5, "会話の戦士"], [8, "ビジネス騎士"], [12, "英語マスター"], [16, "レジェンド"]];
+
+function applyProfile() {
+  const adult = profile === "adult";
+  SCENES = adult ? ADULT_SCENES : KID_SCENES;
+  LEVELS = adult ? ADULT_LEVELS : KID_LEVELS;
+  STAGES = adult ? ADULT_STAGES : KID_STAGES;
+  TITLES = adult ? ADULT_TITLES : KID_TITLES;
+  done = store.get(K("oyako-done"), {});
+  pos = store.get(K("oyako-pos"), {});
+  rpg = Object.assign({ exp: 0, cleared: {}, streak: 0, last: null }, store.get(K("oyako-rpg"), {}));
+  $("profKid").setAttribute("aria-checked", !adult);
+  $("profAdult").setAttribute("aria-checked", adult);
+  $("tagline").textContent = adult ? "大人の日常英会話を、ゲームで毎日" : "英語でたたかって、ステージをすすもう";
+}
+function setProfile(p) {
+  if (p === profile) return;
+  if (battle) endBattle();
+  stopListening();
+  profile = p; store.set("oyako-profile", p);
+  idx = 0;
+  applyProfile();
+  renderTabs(); renderStars(); showCard(false); renderStatus(); renderMap();
+}
+$("profKid").onclick = () => setProfile("kid");
+$("profAdult").onclick = () => setProfile("adult");
+
 // ---------- boot ----------
 if (!SR) breakMic("このブラウザは音声認識に対応していません。パソコンやAndroidのChrome、iPhoneのSafariで開くと、声で判定できます。今は「⭐ 言えた！」で、おうちの人が判定してあげてください。");
+applyProfile();
 renderOpts(); renderModes(); renderTabs(); renderStars(); showCard(false);
 renderView(); renderStatus(); renderMap();
 $("heard").textContent = "🔊 を押すとポコが話します";
