@@ -121,6 +121,55 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 .choice.right { border-color: var(--leaf); background: var(--leaf-soft); color: var(--leaf); }
 .choice.wrong { border-color: var(--miss); background: var(--miss-soft); color: var(--miss); }
 .how[hidden] { display: none !important; }
+.stack { display: grid; gap: 20px; min-width: 0; }
+.views { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.view { border: 2px solid var(--line); background: var(--paper); border-radius: 16px; padding: 12px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; }
+.view[aria-selected="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.status { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; padding: 14px 16px; display: grid; gap: 10px; }
+.hero-row { display: flex; gap: 12px; align-items: center; }
+.hero { flex: none; min-width: 64px; height: 64px; padding: 0 8px; border-radius: 32px; background: var(--sun); display: grid; place-items: center; font-size: 1.9rem; letter-spacing: -6px; }
+.hero-info { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.hero-name { font-weight: 700; }
+.lv { font-family: var(--display); background: var(--ink); color: var(--paper); border-radius: 8px; padding: 1px 8px; margin-left: 4px; font-variant-numeric: tabular-nums; }
+.bar { height: 12px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.bar > div { height: 100%; border-radius: 6px; transition: width .5s; }
+.exp-fill { background: var(--sky); }
+.hp-fill { background: var(--miss); }
+.sub { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { font-size: .82rem; font-weight: 700; border-radius: 999px; padding: 4px 12px; background: var(--sky-soft); }
+.badge.fire { background: var(--sun); color: var(--sun-ink); }
+.badge.ok { background: var(--leaf-soft); color: var(--leaf); }
+.map { display: grid; gap: 10px; position: relative; }
+.stage { display: flex; align-items: center; gap: 12px; border: 2px solid var(--line); background: var(--paper); border-radius: 18px; padding: 10px 14px; text-align: left; width: 100%; }
+.stage:nth-child(even) { margin-left: 18px; width: calc(100% - 18px); }
+.stage .s-ico { font-size: 1.8rem; flex: none; }
+.stage .s-main { flex: 1; min-width: 0; display: grid; }
+.stage .s-name { font-weight: 700; }
+.stage .s-sub { font-size: .78rem; color: var(--muted); }
+.stage .s-foe { font-size: 1.6rem; flex: none; }
+.stage .s-stars { font-size: .8rem; letter-spacing: 1px; color: var(--sun-ink); }
+.stage.next { border-color: var(--sky); box-shadow: 0 0 0 4px var(--sky-soft); }
+.stage.locked { opacity: .5; cursor: default; }
+.stage.boss { border-style: dashed; }
+.battle { background: var(--paper); border: 1px solid var(--line); border-radius: 24px; padding: 18px; display: grid; gap: 14px; justify-items: center; text-align: center; position: relative; }
+.foe-row, .me-row { display: flex; align-items: center; gap: 12px; width: 100%; }
+.foe { font-size: 3.4rem; line-height: 1; flex: none; }
+.foe.hit { animation: shake .4s; }
+.foe.dead { opacity: 0; transform: scale(.3) rotate(40deg); transition: all .6s; }
+.foe-info { flex: 1; min-width: 0; display: grid; gap: 4px; text-align: left; }
+.me-row { border-top: 1px dashed var(--line); padding-top: 12px; }
+.me-row .hero { min-width: 48px; height: 48px; font-size: 1.4rem; }
+.me-row.hurt .hero { animation: shake .4s; }
+.hearts { flex: 1; text-align: left; font-size: 1.4rem; letter-spacing: 2px; }
+@keyframes shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+.log { font-weight: 700; min-height: 1.6em; }
+.btn.small { padding: 6px 12px; font-size: .85rem; }
+.win { position: absolute; inset: 0; background: color-mix(in srgb, var(--paper) 94%, transparent); border-radius: 24px; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 20px; text-align: center; }
+.win-title { font-family: var(--display); font-size: 2rem; font-weight: 700; }
+.win-body { display: grid; gap: 4px; font-weight: 700; }
+.win-body .big { font-size: 1.2rem; color: var(--leaf); }
+@media (prefers-reduced-motion: reduce) { .foe.hit, .me-row.hurt .hero { animation: none; } .foe.dead { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .bear.talk, .mic.rec { animation: none; } }
 </style>
 
@@ -128,10 +177,63 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
 <body>
 <div class="wrap">
   <header>
-    <h1>おやこ英会話タイム<small>まねして、きいて、こたえよう</small></h1>
+    <h1>おやこ英会話タイム<small>英語でたたかって、ステージをすすもう</small></h1>
     <div class="stars" id="stars" aria-live="polite">⭐ 0</div>
   </header>
 
+  <div class="views" role="tablist" aria-label="あそびかた">
+    <button class="view" id="viewAdv" role="tab">⚔️ ぼうけん</button>
+    <button class="view" id="viewPractice" role="tab">📖 れんしゅう</button>
+  </div>
+
+  <div class="stack" id="advView">
+    <section class="status">
+      <div class="hero-row">
+        <div class="hero" id="heroIcon" aria-hidden="true">🐻</div>
+        <div class="hero-info">
+          <div class="hero-name"><span id="heroTitle"></span> ポコ <span class="lv" id="heroLv">Lv.1</span></div>
+          <div class="bar" aria-hidden="true"><div class="exp-fill" id="expFill"></div></div>
+          <div class="sub" id="expText"></div>
+        </div>
+      </div>
+      <div class="badges"><span class="badge fire" id="streak"></span><span class="badge" id="quest"></span></div>
+    </section>
+
+    <section class="map" id="map" aria-label="ステージ"></section>
+
+    <section class="battle" id="battle" hidden>
+      <div class="foe-row">
+        <div class="foe" id="foe" aria-hidden="true">🐛</div>
+        <div class="foe-info"><b id="foeName"></b><div class="bar"><div class="hp-fill" id="foeHp"></div></div><span class="sub" id="foeHpText"></span></div>
+      </div>
+      <div class="log" id="log" aria-live="assertive"></div>
+      <div class="role" id="bRole"></div>
+      <div class="target" id="bTarget"></div>
+      <div class="ja" id="bJa"></div>
+      <button class="btn" id="bListen">🔊 もう一回きく</button>
+      <div class="choices" id="bChoices" hidden></div>
+      <button class="mic" id="bMic" aria-label="マイクを押して話す" hidden>🎤</button>
+      <div class="heard" id="bHeard"></div>
+      <div class="hints" id="bHints" hidden></div>
+      <div class="row">
+        <button class="btn" id="bHint" hidden>💡 ヒント</button>
+        <button class="btn go" id="bSelfOk" hidden>⭐ 言えた！</button>
+        <button class="btn" id="bSelfNg" hidden>言えなかった</button>
+      </div>
+      <div class="me-row" id="meRow">
+        <div class="hero" id="bHero" aria-hidden="true">🐻</div>
+        <div class="hearts" id="hearts" aria-label="のこりライフ"></div>
+        <button class="btn small" id="bRun">にげる</button>
+      </div>
+      <div class="win" id="win" hidden>
+        <div class="win-title" id="winTitle"></div>
+        <div class="win-body" id="winBody"></div>
+        <div class="row"><button class="btn" id="winRetry">もう一回</button><button class="btn go" id="winBtn">マップへ</button></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="stack" id="practiceView" hidden>
   <div class="modes" role="tablist" aria-label="モード">
     <button class="mode" id="modeRepeat" role="tab">🦜 まねっこ<small>まねして言う</small></button>
     <button class="mode" id="modeListen" role="tab">👂 ききとり<small>意味をえらぶ</small></button>
@@ -184,6 +286,7 @@ button:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
     <div><b>2. まねする</b>🎤を押して、同じように言います。</div>
     <div><b>3. ⭐ゲット</b>言えたら次へ。言えなかった単語は赤くなります。</div>
   </section>
+  </div>
 </div>
 
 <script>
@@ -453,7 +556,7 @@ function showCard(autoplay) {
 }
 function award() {
   const k = doneKey(), list = done[k] || (done[k] = []);
-  if (!list.includes(idx)) list.push(idx);
+  if (!list.includes(idx)) { list.push(idx); gainExp(1); }
   store.set("oyako-done", done); renderStars(); renderTabs(); renderDots();
 }
 function goNext() { idx++; showCard(true); }
@@ -466,8 +569,9 @@ function breakMic(msg) {
   if (mode !== "listen" && idx < items().length) $("selfOk").hidden = false;
   $("warn").hidden = false;
   $("warn").innerHTML = "<b>この画面ではマイクが使えません</b>" + msg;
+  if (battle) renderStep();
 }
-function stopListening() { try { recog && recog.abort(); } catch {} listening = false; $("mic").classList.remove("rec"); }
+function stopListening() { try { recog && recog.abort(); } catch {} listening = false; $("mic").classList.remove("rec"); $("bMic").classList.remove("rec"); }
 function showHeard(text) {
   $("heard").innerHTML = "きこえた言葉: <b></b>"; $("heard").querySelector("b").textContent = text || "（きこえなかったよ）";
 }
@@ -517,7 +621,8 @@ function judgeAnswer(alts) {
     if (tries >= 3) $("skip").hidden = false;
   }
 }
-$("mic").onclick = () => {
+// 1回分の音声認識。結果の候補リストを onAlts に渡す
+function startRecog(btn, heardEl, onAlts) {
   if (!SR) return;
   if (listening) { try { recog.stop(); } catch {} return; }
   clearTimeout(advanceTimer);
@@ -525,24 +630,25 @@ $("mic").onclick = () => {
   recog = new SR();
   recog.lang = "en-US"; recog.interimResults = true; recog.maxAlternatives = 5; recog.continuous = false;
   let finalAlts = null, interim = "";
-  recog.onstart = () => { listening = true; $("mic").classList.add("rec"); $("heard").textContent = "きいてるよ… 話しおわったらまってね"; };
+  recog.onstart = () => { listening = true; btn.classList.add("rec"); heardEl.textContent = "きいてるよ… 話しおわったらまってね"; };
   recog.onresult = ev => {
     const res = ev.results[ev.results.length - 1];
     if (res.isFinal) finalAlts = Array.from(res).map(a => a.transcript);
-    else { interim = res[0].transcript; $("heard").textContent = "… " + interim; }
+    else { interim = res[0].transcript; heardEl.textContent = "… " + interim; }
   };
   recog.onerror = ev => {
     if (ev.error === "not-allowed" || ev.error === "service-not-allowed" || ev.error === "audio-capture")
       breakMic("マイクの使用が許可されていません。ブラウザの設定でマイクを許可するか、「⭐ 言えた！」で、おうちの人が判定してあげてください。");
   };
   recog.onend = () => {
-    listening = false; $("mic").classList.remove("rec");
+    listening = false; btn.classList.remove("rec");
     if (micBroken) return;
-    const alts = finalAlts || (interim ? [interim] : [""]);
-    mode === "answer" ? judgeAnswer(alts) : judgeRepeat(alts);
+    onAlts(finalAlts || (interim ? [interim] : [""]));
   };
   try { recog.start(); } catch { breakMic("マイクを開始できませんでした。"); }
-};
+}
+$("mic").onclick = () => startRecog($("mic"), $("heard"), alts => mode === "answer" ? judgeAnswer(alts) : judgeRepeat(alts));
+
 
 $("listen").onclick = () => speak(itemText(idx));
 $("next").onclick = () => { if (idx >= items().length) { idx = 0; showCard(true); } else goNext(); };
@@ -562,9 +668,245 @@ function renderOpts() {
 for (const [id, key] of [["slow", "slow"], ["hideTxt", "hide"], ["easy", "easy"]])
   $(id).onclick = () => { opts[key] = !opts[key]; store.set("oyako-opts", opts); renderOpts(); if (key === "hide" && mode === "repeat" && idx < items().length) renderTarget(null, opts.hide); };
 
+
+// ---------- ぼうけん（RPG） ----------
+const STAGES = [
+  { id: "s1", ico: "🌲", name: "あさの森", scene: "morning", foe: "🐛", foeName: "ねぼすけムシ" },
+  { id: "s2", ico: "🏡", name: "ごはんの村", scene: "meal", foe: "🐷", foeName: "はらぺこブー" },
+  { id: "s3", ico: "🫧", name: "あわあわ湖", scene: "bath", foe: "🐙", foeName: "あわあわタコ" },
+  { id: "s4", ico: "🧩", name: "おもちゃの谷", scene: "play", foe: "🤖", foeName: "いたずらロボ" },
+  { id: "s5", ico: "🌾", name: "おでかけ草原", scene: "out", foe: "🦊", foeName: "まいごギツネ" },
+  { id: "s6", ico: "🌙", name: "よぞらの塔", scene: "night", foe: "🦉", foeName: "よふかしフクロウ" },
+  { id: "s7", ico: "🕳️", name: "しつもん洞くつ", level: "easy", foe: "👻", foeName: "ナゾナゾおばけ", boss: true },
+  { id: "s8", ico: "🏯", name: "おしゃべり城", level: "normal", foe: "🐲", foeName: "おしゃべりドラゴン", boss: true },
+  { id: "s9", ico: "🌋", name: "まおうの城", level: "challenge", foe: "👑", foeName: "だんまりまおう", boss: true },
+];
+const TITLES = [[1, "みならい"], [3, "かけだし勇者"], [5, "ことばの戦士"], [8, "えいごの騎士"], [12, "ことばの勇者"], [16, "でんせつの勇者"]];
+const GEAR = [[1, "🐻", ""], [2, "🗡️", "木のけん"], [4, "🛡️", "まもりのたて"], [6, "🎒", "ぼうけんバッグ"], [9, "🪄", "ことばのつえ"], [13, "👑", "勇者のかんむり"]];
+let rpg = Object.assign({ exp: 0, cleared: {}, streak: 0, last: null }, store.get("oyako-rpg", {}));
+let view = store.get("oyako-view", "adv");
+let battle = null;
+
+const dayStr = d => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+const today = () => dayStr(new Date());
+const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return dayStr(d); };
+function levelInfo(exp) {
+  let lv = 1, need = 20, rest = exp;
+  while (rest >= need) { rest -= need; lv++; need = lv * 20; }
+  return { lv, rest, need };
+}
+const titleOf = lv => TITLES.filter(t => lv >= t[0]).pop()[1];
+const gearOf = lv => GEAR.filter(g => lv >= g[0]);
+function heroIcon(lv) { return gearOf(lv).map(g => g[1]).join(""); }
+function saveRpg() { store.set("oyako-rpg", rpg); }
+function gainExp(n) {
+  const before = levelInfo(rpg.exp).lv;
+  rpg.exp += n; saveRpg(); renderStatus();
+  return levelInfo(rpg.exp).lv > before;
+}
+function renderStatus() {
+  const { lv, rest, need } = levelInfo(rpg.exp);
+  $("heroIcon").textContent = heroIcon(lv); $("bHero").textContent = heroIcon(lv);
+  $("heroTitle").textContent = titleOf(lv);
+  $("heroLv").textContent = "Lv." + lv;
+  $("expFill").style.width = Math.round(rest / need * 100) + "%";
+  $("expText").textContent = `EXP ${rest} / ${need}　つぎのレベルまであと ${need - rest}`;
+  const alive = rpg.last === today() || rpg.last === yesterday();
+  $("streak").textContent = "🔥 " + (alive ? rpg.streak : 0) + "日れんぞく";
+  const doneToday = rpg.last === today();
+  $("quest").textContent = doneToday ? "📜 今日のぼうけん クリア！" : "📜 今日のぼうけん: 1ステージクリアしよう";
+  $("quest").className = "badge" + (doneToday ? " ok" : "");
+}
+const unlocked = i => i === 0 || !!rpg.cleared[STAGES[i - 1].id];
+function renderMap() {
+  const m = $("map"); m.innerHTML = "";
+  const next = STAGES.findIndex((s, i) => unlocked(i) && !rpg.cleared[s.id]);
+  STAGES.forEach((s, i) => {
+    const b = document.createElement("button");
+    const open = unlocked(i), stars = rpg.cleared[s.id] || 0;
+    b.className = "stage" + (open ? "" : " locked") + (i === next ? " next" : "") + (s.boss ? " boss" : "");
+    b.disabled = !open;
+    const sub = s.boss ? "ボス：しつもんに英語で答えてたおそう" : "まねっこ と ききとり でたおそう";
+    b.innerHTML = `<span class="s-ico" aria-hidden="true">${open ? s.ico : "🔒"}</span>
+      <span class="s-main"><span class="s-name">ステージ${i + 1}　${s.name}</span><span class="s-sub">${open ? sub : "まえのステージをクリアするとひらくよ"}</span>
+      <span class="s-stars" aria-label="${stars}つぼし">${open ? "★".repeat(stars) + "☆".repeat(3 - stars) : ""}${i === next ? "　▶ つぎはここ！" : ""}</span></span>
+      <span class="s-foe" aria-hidden="true">${open ? s.foe : "❔"}</span>`;
+    b.onclick = () => startBattle(i);
+    m.append(b);
+  });
+}
+function renderView() {
+  $("viewAdv").setAttribute("aria-selected", view === "adv");
+  $("viewPractice").setAttribute("aria-selected", view === "practice");
+  $("advView").hidden = view !== "adv"; $("practiceView").hidden = view !== "practice";
+  $("stars").hidden = view === "adv";
+}
+function setView(v) { view = v; store.set("oyako-view", v); stopListening(); if (v !== "adv") endBattle(); renderView(); }
+$("viewAdv").onclick = () => setView("adv");
+$("viewPractice").onclick = () => setView("practice");
+
+function startBattle(i) {
+  const st = STAGES[i];
+  let steps;
+  if (st.scene) {
+    const lines = shuffle(SCENES.find(s => s.id === st.scene).lines.slice()).slice(0, 5);
+    const kinds = ["listen", "repeat", "listen", "repeat", "repeat"];
+    steps = lines.map((l, k) => ({ kind: kinds[k], en: l[1], ja: l[2] }));
+  } else {
+    steps = shuffle(LEVELS.find(l => l.id === st.level).qs.slice()).slice(0, 5).map(q => ({ kind: "answer", q }));
+  }
+  battle = { i, st, steps, step: 0, hp: steps.length, hearts: 3, tries: 0, busy: false };
+  $("map").hidden = true; $("battle").hidden = false; $("win").hidden = true;
+  $("foe").className = "foe"; $("foe").textContent = st.foe; $("foeName").textContent = st.foeName;
+  log(`${st.foeName}があらわれた！`);
+  renderBattleBars(); renderStep();
+  $("battle").scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+function endBattle() {
+  clearTimeout(advanceTimer); stopListening();
+  battle = null; $("battle").hidden = true; $("map").hidden = false; renderMap(); renderStatus();
+}
+function log(t) { $("log").textContent = t; }
+function renderBattleBars() {
+  $("foeHp").style.width = (battle.hp / battle.steps.length * 100) + "%";
+  $("foeHpText").textContent = `HP ${battle.hp} / ${battle.steps.length}`;
+  $("hearts").textContent = "❤️".repeat(battle.hearts) + "🤍".repeat(3 - battle.hearts);
+}
+function stepText(st) { return st.kind === "answer" ? st.q.q : st.en; }
+function setTarget(text, hide, hit) {
+  const t = $("bTarget"); t.innerHTML = "";
+  let k = 0;
+  for (const tok of text.split(/\s+/)) {
+    const n = words(tok).length;
+    const span = document.createElement("span"); span.className = "w"; span.textContent = tok;
+    if (hit) span.classList.add(hit.slice(k, k + n).every(Boolean) ? "hit" : "miss");
+    k += n; t.append(span);
+  }
+  t.classList.toggle("hide", !!hide);
+}
+function renderStep() {
+  if (!battle || battle.hp <= 0 || battle.hearts <= 0) return;
+  const st = battle.steps[battle.step];
+  ["bChoices", "bMic", "bHints", "bHint", "bSelfOk", "bSelfNg"].forEach(id => $(id).hidden = true);
+  $("bHeard").textContent = "";
+  if (st.kind === "listen") {
+    $("bRole").textContent = "👂 ききとりこうげき：なんて言ったかな？";
+    $("bJa").textContent = "";
+    setTarget(st.en, true);
+    const pool = [...new Set(SCENES.flatMap(s => s.lines.map(l => l[2])))].filter(j => j !== st.ja);
+    const box = $("bChoices"); box.innerHTML = ""; box.hidden = false;
+    for (const o of shuffle([st.ja, ...shuffle(pool).slice(0, 2)])) {
+      const b = document.createElement("button"); b.className = "choice"; b.textContent = o;
+      b.onclick = () => {
+        if (battle.busy) return;
+        if (o === st.ja) { b.classList.add("right"); setTarget(st.en, false); hit(); }
+        else { b.classList.add("wrong"); b.disabled = true; miss(); }
+      };
+      box.append(b);
+    }
+  } else {
+    const isAns = st.kind === "answer";
+    $("bRole").textContent = isAns ? "💬 おへんじこうげき：英語で答えよう！" : "🦜 まねっここうげき：同じように言おう！";
+    $("bJa").textContent = isAns ? st.q.ja : st.ja;
+    setTarget(stepText(st), false);
+    if (micBroken) { $("bSelfOk").hidden = false; $("bSelfNg").hidden = false; }
+    else { $("bMic").hidden = false; $("bHeard").textContent = "🎤を押してこうげき！"; }
+    if (isAns) {
+      $("bHints").innerHTML = "";
+      for (const [en, ja] of st.q.hints) {
+        const c = document.createElement("button"); c.className = "chip"; c.textContent = en;
+        const sm = document.createElement("small"); sm.textContent = ja; c.append(sm);
+        c.onclick = () => speak(en);
+        $("bHints").append(c);
+      }
+      $("bHint").hidden = false;
+    }
+  }
+  speak(stepText(st));
+}
+function bShowHeard(text) { $("bHeard").innerHTML = "きこえた言葉: <b></b>"; $("bHeard").querySelector("b").textContent = text || "（きこえなかったよ）"; }
+function battleJudge(alts) {
+  if (!battle) return;
+  const st = battle.steps[battle.step];
+  if (st.kind === "answer") {
+    let res = null, said = alts[0] || "";
+    for (const a of alts) { res = answerCheck(st.q, a); if (res) { said = a; break; } }
+    bShowHeard(said);
+    if (res) hit(res.reply[0]); else miss();
+  } else {
+    let best = { score: -1 }, txt = "";
+    for (const a of alts) { const m = match(st.en, a); if (m.score > best.score) { best = m; txt = a; } }
+    bShowHeard(txt); setTarget(st.en, false, best.hit);
+    if (best.score >= (opts.easy ? 0.6 : 0.7)) hit(best.score === 1 ? "Perfect!" : "Great!"); else miss();
+  }
+}
+$("bMic").onclick = () => startRecog($("bMic"), $("bHeard"), battleJudge);
+$("bListen").onclick = () => battle && speak(stepText(battle.steps[battle.step]));
+$("bHint").onclick = () => { $("bHints").hidden = false; $("bHint").hidden = true; };
+$("bSelfOk").onclick = () => hit("Great!");
+$("bSelfNg").onclick = () => miss();
+$("bRun").onclick = () => { log("にげだした！"); endBattle(); };
+function bump(el, cls) { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+function hit(praise) {
+  battle.busy = true; battle.tries = 0;
+  $("bMic").hidden = true; $("bSelfOk").hidden = true; $("bSelfNg").hidden = true;
+  battle.hp--; renderBattleBars(); bump($("foe"), "hit");
+  log(`ポコのこうげき！ ${battle.st.foeName}に1ダメージ！`);
+  speak(praise || "Great!");
+  advanceTimer = setTimeout(() => {
+    if (!battle) return;
+    battle.busy = false;
+    if (battle.hp <= 0) return win();
+    battle.step++; renderStep();
+  }, 1600);
+}
+function miss() {
+  battle.hearts--; battle.tries++; renderBattleBars(); bump($("meRow"), "hurt");
+  if (battle.hearts <= 0) return lose();
+  log(`${battle.st.foeName}のこうげき！ ❤️が1へった… もう一回！`);
+  const st = battle.steps[battle.step];
+  if (st.kind === "answer" && battle.tries >= 1) { $("bHints").hidden = false; $("bHint").hidden = true; }
+  if (st.kind !== "listen") speak(stepText(st));
+}
+function win() {
+  const b = battle, first = !rpg.cleared[b.st.id];
+  $("foe").classList.add("dead");
+  const stars = b.hearts;
+  rpg.cleared[b.st.id] = Math.max(rpg.cleared[b.st.id] || 0, stars);
+  let gain = 10 + b.i * 2 + stars * 3, bonus = 0;
+  if (rpg.last !== today()) {
+    rpg.streak = rpg.last === yesterday() ? rpg.streak + 1 : 1;
+    rpg.last = today();
+    bonus = Math.min(rpg.streak, 7) * 2;
+  }
+  const beforeGear = gearOf(levelInfo(rpg.exp).lv).length;
+  const up = gainExp(gain + bonus);
+  const lv = levelInfo(rpg.exp).lv, gear = gearOf(lv);
+  const rows = [`<span class="big">${b.st.foeName}をたおした！</span>`, "★".repeat(stars) + "☆".repeat(3 - stars), `EXP +${gain}`];
+  if (bonus) rows.push(`🔥 ${rpg.streak}日れんぞくボーナス EXP +${bonus}`);
+  if (up) rows.push(`🎉 レベルアップ！ Lv.${lv}「${titleOf(lv)}」`);
+  if (gear.length > beforeGear) rows.push(`✨ あたらしいそうび：${gear[gear.length - 1][1]} ${gear[gear.length - 1][2]}`);
+  if (first && STAGES[b.i + 1]) rows.push(`🗺️ ステージ${b.i + 2}「${STAGES[b.i + 1].name}」がひらいた！`);
+  if (first && !STAGES[b.i + 1]) rows.push("🏆 まおうをたおした！ でんせつの勇者だ！");
+  $("winTitle").textContent = "🎉 かった！";
+  $("winBody").innerHTML = rows.map(r => `<div>${r}</div>`).join("");
+  $("win").hidden = false;
+  speak(up ? "You win! Level up!" : "You win!");
+}
+function lose() {
+  gainExp(3);
+  $("winTitle").textContent = "😵 まけちゃった…";
+  $("winBody").innerHTML = "<div>でも、れんしゅうしたぶん強くなったよ</div><div>EXP +3</div><div>📖 れんしゅうモードでとっくんしてもいいね</div>";
+  $("win").hidden = false;
+  speak("Nice try!");
+}
+$("winBtn").onclick = endBattle;
+$("winRetry").onclick = () => { const i = battle.i; startBattle(i); };
+
 // ---------- boot ----------
 if (!SR) breakMic("このブラウザは音声認識に対応していません。パソコンやAndroidのChrome、iPhoneのSafariで開くと、声で判定できます。今は「⭐ 言えた！」で、おうちの人が判定してあげてください。");
 renderOpts(); renderModes(); renderTabs(); renderStars(); showCard(false);
+renderView(); renderStatus(); renderMap();
 $("heard").textContent = "🔊 を押すとポコが話します";
 </script>
 
